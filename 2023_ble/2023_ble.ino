@@ -283,7 +283,7 @@ void loop() {
   dataFrame[j+9] = b10;
 
   j = j + 10;
-  delay(5); //samples at 200hz
+  // delay(5); //samples at 200hz
 
   // delay(500); // to change next
 
