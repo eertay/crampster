@@ -101,17 +101,18 @@ void ble_init() {
   pTxCharacteristic = pService->createCharacteristic(
 										CHARACTERISTIC_UUID_TX,
 										BLECharacteristic::PROPERTY_NOTIFY |
-                    BLECharacteristic::PROPERTY_WRITE
+                    BLECharacteristic::PROPERTY_WRITE |
+                    BLECharacteristic::PROPERTY_READ
 									);
                       
   pTxCharacteristic->addDescriptor(new BLE2902());
 
-  BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-											 CHARACTERISTIC_UUID_RX,
-											BLECharacteristic::PROPERTY_READ
-										);
+  // BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
+	// 										 CHARACTERISTIC_UUID_RX,
+	// 										BLECharacteristic::PROPERTY_READ
+	// 									);
 
-  pRxCharacteristic->setCallbacks(new MyCallbacks());
+   pTxCharacteristic->setCallbacks(new MyCallbacks());
 
   // Start the service
   pService->start();
