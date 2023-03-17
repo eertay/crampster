@@ -7,6 +7,9 @@
 #include <BLE2902.h>
 #include <SparkFun_Bio_Sensor_Hub_Library.h>
 
+
+#define FRAMESIZE  170
+
 // Pulseox: Reset pin, MFIO pin
 int resPin = 4;
 int mfioPin = 5;
@@ -33,13 +36,24 @@ volatile uint16_t airtemp = 0x00;
 volatile uint16_t bodytemp = 0x00;
 volatile uint32_t irled_inp = 0x00;
 volatile uint32_t redled_inp = 0x00;
+volatile uint16_t heartr = 0x00;
+volatile uint16_t ox = 0x00;
 
 
+
+volatile char b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, i1, i2 = 0x00;
 uint16_t temp1 = 0;
 uint16_t temp2 = 0;
+uint16_t indicator = 0;
 
-uint8_t dataFrame[128]; 
+uint8_t dataFrame[FRAMESIZE]; 
 int j = 0;
+
+// Timer Counter
+uint32_t oldtime = 0x00;
+
+
+
 
 // UUUID
 #define SERVICE_UUID "00000001-1000-2000-3000-111122223333"
@@ -118,7 +132,6 @@ void ble_init() {
 
 
 int get_temp1() {
-  Wire.end(4, 5);
   sensor1.setMeasurementMode(TMP117_MODE_ONE_SHOT);
   sensors_event_t temp1;
   sensor1.getEvent(&temp1); //fill the empty event object with the current measurements
@@ -135,21 +148,26 @@ int get_temp2() {
 
 uint32_t get_irled() {
   // restart wire, Not sure if it'll work
-  Wire.begin();
 
-  body = bioHub.readSensorBpm();
   return body.irLed;
 }
 
 uint32_t get_redled() {
-  body = bioHub.readSensorBpm();
+  //body = bioHub.readSensorBpm();
   return body.redLed;
 }
 
 uint16_t get_bpm() {
-  body = bioHub.readSensorBpm();
+  //body = bioHub.readSensorBpm();
   return body.heartRate;
 }
+
+uint16_t get_ox() {
+  //body = bioHub.readSensorBpm();
+  return body.oxygen;
+}
+
+
 
 void setup(){
   Serial.begin(115200);
@@ -172,6 +190,7 @@ void setup(){
   int pulseOx_result = bioHub.begin();
   int temp1_result = sensor1.begin(0x49); // Air temp
   int temp2_result = sensor2.begin();
+
 
   //check to see if they started
   if (pulseOx_result == 0 && temp1_result == 0 && temp2_result == 0) {// Zero errors!
@@ -237,63 +256,174 @@ void setup(){
   // up. 
   Serial.println("Loading up the buffer with data....");
 
+
+  // Initialize pulse ox
+  body = bioHub.readSensorBpm();
+
+  //set the intial temp readings
+  airtemp = get_temp1();
+  // bodytemp = get_temp2();
+
   delay(1000);
   ble_init();
+  oldtime = millis();
 
 }
 
 void loop() {
 
   // Timer Counter
-  static uint32_t oldtime = millis();
+  // static uint32_t oldtime = millis();
 
-  if ( (millis()-oldtime) > 1000 ) {
+  if ( (millis()-oldtime) >= 1000 ) {
     airtemp = get_temp1();
-    Serial.println(airtemp);
-
-    // Send temp data
-
-    char b1 = airtemp >> 0 & 0xFF; 
-    char b2 = airtemp >> 8 & 0xFF; 
-
-    dataFrame[j] = b1;
-    dataFrame[j+1] = b2;
-
-    j = j + 2;
+    bodytemp = get_temp2();
+    // j = j + 2;
 
     // Update time
     oldtime = millis();
   }
 
-  irled_inp = get_irled();
-  Serial.println(irled_inp);
 
 
+  // Indicator
+  indicator = 0;
+
+  i1 = indicator >> 0 & 0xFF;
+  i2 = indicator >> 8 & 0xFF;
+  Serial.println(indicator);
+
+
+  dataFrame[j] = i1;
+  dataFrame[j+1] = i2;
+
+
+  // Send temp data
+
+  b1 = airtemp >> 0 & 0xFF; 
+  b2 = airtemp >> 8 & 0xFF; 
+
+  dataFrame[j+2] = b1;
+  dataFrame[j+3] = b2;
+
+  Serial.println(airtemp);
+
+
+
+  // Indicator
+  indicator = 1;
+
+  i1 = indicator >> 0 & 0xFF;
+  i2 = indicator >> 8 & 0xFF;
+  Serial.println(indicator);
+
+
+  dataFrame[j+3] = i1;
+  dataFrame[j+4] = i2;
+
+
+  // Send temp data
+
+  b3 = bodytemp >> 0 & 0xFF; 
+  b4 = bodytemp >> 8 & 0xFF; 
+
+  dataFrame[j+5] = b1;
+  dataFrame[j+6] = b2;
+
+  Serial.println(bodytemp);
   // Try getting heartrate
   // irled_inp = get_bpm();
   // Serial.println(irled_inp);
 
-  char b3 = irled_inp >> 0 & 0xFF; 
-  char b4 = irled_inp >> 8 & 0xFF; 
-  char b5 = irled_inp >> 16 & 0xFF; 
-  char b6 = irled_inp >> 24 & 0xFF; 
-
-  dataFrame[j+2] = b3;
-  dataFrame[j+3] = b4;
-  dataFrame[j+4] = b5;
-  dataFrame[j+5] = b6;
-
-  j = j + 4;
+  irled_inp = get_irled();
 
 
-  delay(500); // to change next
+  // Indicator
+  indicator = 2;
 
-  if (deviceConnected && j == 128) {
-    j = 0;
+  i1 = indicator >> 0 & 0xFF;
+  i2 = indicator >> 8 & 0xFF;
+
+  Serial.println(indicator);
+
+
+  dataFrame[j+7] = i1;
+  dataFrame[j+8] = i2;
+
+
+  b3 = irled_inp >> 0 & 0xFF; 
+  b4 = irled_inp >> 8 & 0xFF; 
+  b5 = irled_inp >> 16 & 0xFF; 
+  b6 = irled_inp >> 24 & 0xFF; 
+
+  dataFrame[j+9] = b3;
+  dataFrame[j+10] = b4;
+  dataFrame[j+11] = b5;
+  dataFrame[j+12]= b6;
+
+  Serial.println(irled_inp);
+
+
+  redled_inp = get_redled();
+
+
+  // Indicator
+  indicator = 3;
+
+  i1 = indicator >> 0 & 0xFF;
+  i2 = indicator >> 8 & 0xFF;
+
+  Serial.println(indicator);
+
+
+  dataFrame[j+13] = i1;
+  dataFrame[j+14] = i2;
+
+
+  b3 = redled_inp >> 0 & 0xFF; 
+  b4 = redled_inp >> 8 & 0xFF; 
+  b5 = redled_inp >> 16 & 0xFF; 
+  b6 = redled_inp >> 24 & 0xFF; 
+
+  dataFrame[j+15] = b3;
+  dataFrame[j+16] = b4;
+  dataFrame[j+17] = b5;
+  dataFrame[j+18] = b6;
+
+  Serial.println(redled_inp);
+
+  heartr = get_heartra
+
+  // Indicator
+  indicator = 4;
+
+  i1 = indicator >> 0 & 0xFF;
+  i2 = indicator >> 8 & 0xFF;
+  Serial.println(indicator);
+
+
+  dataFrame[j+19] = i1;
+  dataFrame[j+20] = i2;
+
+
+  // Send temp data
+
+  b3 = bodytemp >> 0 & 0xFF; 
+  b4 = bodytemp >> 8 & 0xFF; 
+
+  dataFrame[j+5] = b1;
+  dataFrame[j+6] = b2;
+
+  Serial.println(bodytemp);
+  j = j + 19;
+
+
+  if (deviceConnected && j == FRAMESIZE) {
     pTxCharacteristic->setValue(dataFrame, sizeof(dataFrame)); 
     pTxCharacteristic->notify();
     txValue++;
-    delay(100);
+    j = 0;
+    delay(10);
   }
   
 
@@ -308,5 +438,7 @@ void loop() {
   if (deviceConnected && !oldDeviceConnected) {
     oldDeviceConnected = deviceConnected;
   }
+
+  delay(1000);
 
 }
